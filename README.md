@@ -4,6 +4,7 @@ STM32F10x (aka BLUE PILL) RTC Library - VSCode / Arduino / Battery Backup
 John Hoeppner@Abbycus 2020
 
 ### DESCRIPTION:
+
 A simple and minimalist library to implement real time clock functions on various STM32F10x boards (Blue Pill, Black Pill, etc.). This was created because other libraries didn't work with battery backup and would lose the date on reset/power down.
 
 The STM32F10x MPU sports an embedded RTC with a ***Vbat*** pin that can power the RTC via a coin cell when main power is removed. These boards also contain a low power 32.768 KHz resonator as the precision clock source. 
@@ -16,11 +17,46 @@ Additionally the STM32F10x has 42 16-bit backup registers that can be used to st
 I hope this is useful and would appreciate your feedback.
 
 ### NOTES:
-1) The external battery (coin cell or ?) should be connected to the Vbat pin through a shottky diode to prevent current flow into the battery when the board is powered normally.
-2) Use caution when utilizing GPIO PC13: This I/O is active when Vbat is connected to an external battery. On the Blue Pill boards PC13 is connected to the on-board LED and if it is active when main power drops, the external battery could drain quickly.
+
+- The external battery (CR2032 or ?) should be connected to the Vbat pin through a shottky diode to prevent current flow into the battery when the board is powered normally.
+
+- Use caution when utilizing GPIO PC13: This I/O is active when Vbat is connected to an external battery. On the Blue Pill boards PC13 is connected to the on-board LED and if it is active when main power drops, the external battery could drain quickly.
+
+- Many (or perhaps most) cheap BLUE PILL boards use Chinese STM32F10x clones. 
+These chips have a slightly different signature than 'real' STMicro chips and may fail during firmware uploading. Here is one workaround:
+> Locate the file 'stm32f1x.cfg',
+    Linux path example: '.platformio/packages/tool-openocd/scripts/target/stm32f1x.cfg'.
+> Open this file with a text editor.
+> Find and change "set _CPUTAPID 0x1ba01477" to "set _CPUTAPID 0x2ba01477"
+> Save & exit.
+
+
+### SAMPLE BUILD ENVIRONMENT
+
+Visual Studio (VSCode) with PlatformIO IDE using the arduino framework.
+```
+platformio.ini:
+       platform = ststm32
+       board = bluepill_f103c8
+       framework = arduino
+       upload_port = /dev/ttys0
+       monitor_speed = 115200
+       upload_protocol = stlink
+       ; *** Build flags enable USB serial monitor functionality.
+       ; *** Can be eliminated to save memory if USB serial is not needed
+       build_flags = 
+	      -D PIO_FRAMEWORK_ARDUINO_ENABLE_CDC
+	      -D USBCON
+	      -D USBD_VID=0x0483
+	      -D USB_MANUFACTURER="Unknown"
+	      -D USB_PRODUCT="\"BLUEPILL_F103C8\""
+        -D HAL_PCD_MODULE_ENABLED
+```
 
 ### INSTALLATION:
+
 The library is intended to be included with the project files. Simply add the *blue_pill_rtc.h* and *blue_pill_rtc.cpp* files into your project folder and #include blue_pill_rtc.h in your source.
+
 
 ### USAGE
 **Add in your source code:**
