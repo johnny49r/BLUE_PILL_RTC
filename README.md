@@ -24,12 +24,13 @@ I hope this is useful and would appreciate your feedback.
 
 - Many (or perhaps most) cheap BLUE PILL boards use Chinese STM32F10x clones. 
 These chips have a slightly different signature than 'real' STMicro chips and may fail during firmware uploading. Here is one workaround:
+```
 > Locate the file 'stm32f1x.cfg',
     Linux path example: '.platformio/packages/tool-openocd/scripts/target/stm32f1x.cfg'.
 > Open this file with a text editor.
 > Find and change "set _CPUTAPID 0x1ba01477" to "set _CPUTAPID 0x2ba01477"
 > Save & exit.
-
+```
 
 ### SAMPLE BUILD ENVIRONMENT
 
