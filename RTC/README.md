@@ -22,6 +22,8 @@ I hope this is useful and would appreciate your feedback.
 
 - Use caution when utilizing GPIO PC13: This I/O is active when Vbat is connected to an external battery. On the Blue Pill boards PC13 is connected to the on-board LED and if it is active when main power drops, the external battery could drain quickly.
 
+- Not all devices support 42 backup registers. The cheap knockoff's only seem to support 10. For this reason the library will only support 9 user resisters. The first register is used for keeping the state of the RTC during power down.
+
 - Many (or perhaps most) cheap BLUE PILL boards use Chinese STM32F10x clones. 
 These chips have a slightly different signature than 'real' STMicro chips and may fail during firmware uploading. Here is one workaround:
 ```
@@ -31,6 +33,8 @@ These chips have a slightly different signature than 'real' STMicro chips and ma
 > Find and change "set _CPUTAPID 0x1ba01477" to "set _CPUTAPID 0x2ba01477"
 > Save & exit.
 ```
+
+- Check the STM32LIBS_RTC.h header file for more details about parameter and return data types and possible values.
 
 ### SAMPLE BUILD ENVIRONMENT
 
@@ -56,15 +60,18 @@ platformio.ini:
 
 ### INSTALLATION:
 
-The library is intended to be included with the project files. Simply add the *blue_pill_rtc.h* and *blue_pill_rtc.cpp* files into your project folder and #include blue_pill_rtc.h in your source.
+Arduino: just add the library folder to the Arduino/library directory.
+
+VSCode: Place the library folder in the .platformio/lib folder. Close and restart VSCode.
 
 
 ### USAGE
 **Add in your source code:**
 ```
-#include "blue_pill_rtc.h"
-BLUE_PILL_RTC rtc;        
-_dateTimeStruct dateTime;    
+#include "STM32LIBS_RTC.h"       // include this header
+STM32LIBS_RTC& rtc = STM32LIBS_RTC::getInstance();   // instanciate the lib object
+RTC_datetime_t datetime;	 // create structures for time & date
+RTC_datetime_t alarm_datetime;   // create structure for alarm if needed
 ```
 
 #### DateTime Structure
@@ -77,94 +84,161 @@ bool am_pm;                // true if PM
 uint8_t seconds;
 uint8_t minutes;
 uint8_t hours;
-uint32_t timestamp;         // time in secs since 1970
+uint32_t epoch;            // time in secs since 1970
 uint8_t weekday;
 uint8_t day;
 uint8_t month;
 uint8_t year;
-}_dateTimeStruct;
+} RTC_datetime_t;
 ```
 
 #### Function Descriptions 
 
-##### begin(callback) 
+##### begin(initActions) 
 ```
-One time RTC initialization. Usually called in setup(): rtc.begin();
-Arg: callback - pointer to alarm handler function (not implemented)
-Ret: error code. 0 = no error.
+RTC initialization. Usually called in setup(): rtc.begin();
+Arg: initActions:
+	a) INIT_NONE - no special action
+	b) INIT_TIME_RESET - reset time to Jan 1, 1970
+	c) INIT_ALARM_RESET - clear alarm
+	d) INIT_RTC_RESET - *** WARNING! *** this resets the entire RTC domain including backup regs
+Ret: Nothing
 ```
 
-##### setDateTime(_dateTimeStruct_)
+##### end() 
 ```
-Set the clock to the date & time contained in the _dateTimeStruct.
+Stop RTC and disable alarm.
+Arg: None
+Ret: Nothing
+```
+
+##### attachInterrupt(voidFuncPtr callback, void *data)
+```
+Attach a callback for alarm event.
+Arg: callback - pointer to your alarm event handler.
+Arg: data - pointer to any data that might be passed to the alarm event handler.
+Ret: Nothing
+```
+
+##### deattachInterrupt()
+```
+Removes the callback for alarm event.
+Arg: None 
+Ret: Nothing
+```
+
+##### setDateTime(datetime)
+```
+Sets the RTC date & time.
+Arg: datetime is a RTC_datetime_t structure containing date & time elements.
 Ret: nothing.
 ```
 
-##### getDateTime(_dateTimeStruct_)
+##### getDateTime(datetime, hour_format)
 ```
-Loads the date & time into the _dateTimeStruct.
+Gets the current the date & time from the RTC clock.
+Arg: datetime is a RTC_datetime_t structure which will be updated with date & time elements.
+Arg: <OPTIONAL> hour_format sets 12 or 24 hour time format. If not included the hour format is derived from the datetime structure.
 Ret: nothing.
 ```
 
-##### setAlarm(timestamp)
+##### setEpoch(epoch)
 ```
-Sets the alarm with the value in timestamp.
+Sets the RTC epoch time (32 bit number of seconds since 1970).
 Ret: nothing.
 ```
 
-##### checkAlarm()
+##### getEpoch()
 ```
-Checks if an alarm event has occured.
-Ret: true if alarm event.
+Gets the RTC epoch time (32 bit number of seconds since 1970).
+Ret: 32 bit epoch value..
 ```
 
-##### clearAlarm()
+##### dateTimeToEpoch(datetime)
 ```
-Clears alarm. This is usually called after checkAlarm() to clear the alarm.
+Converts the date & time elements in the datetime structure to a 32 bit epoch.
+Arg: datetime - pointer to RTC_datetime_t structure containing date time elements.
+Ret: 32 bit epoch. Also updates epoch field in datetime.
+```
+
+##### epochToDateTime(datetime, epoch)
+```
+Converts the epoch 32 bit value to date & time elements and stores them in datetime.
+Arg: datetime - pointer to RTC_datetime_t structure.
+Arg: epoch - 32 bit epoch value.
 Ret: nothing.
 ```
 
-##### getTimeStamp()
+##### setAlarmDateTime(alarmtime)
 ```
-Get the current RTC count 'timestamp'.
-Ret: 32 bit timestamp - number of seconds since 1970.
-```
-
-##### setTimeStamp(timestamp)
-```
-Sets the current RTC count 'timestamp'.
-Ret: nothing.
+Sets an ABSOLUTE alarm using the values in alarmtime.
+Arg: alarmtime - pointer to RTC_datetime_t structure.
+Ret: Error code if alarm date/time is invalid (<= current date/time). 0 otherwise.
 ```
 
-##### timeCompress(_dateTimeStruct_)
+##### setAlarmFromEpoch(alarm_epoch)
 ```
-Converts the date & time values in the _dateTimeStruct to a singular timestamp.
-Ret: 32 bit timestamp. Also updates timestamp in the _dateTimeStruct.
-```
-
-##### timeExpand(_dateTimeStruct, timestamp_)
-```
-Converts the singular timestamp to date & time values and stores them in the _dateTimeStruct.
-Ret: nothing.
+Sets a RELATIVE alarm using an epoch value.
+Arg: alarm_epoch - epoch value of new alarm value.
+Ret: Error code if alarm epoch is invalid (<= current date/time). 0 otherwise.
 ```
 
-##### writeBackup(words[], start, length)
+##### eepromWrite(data_array[], indx, len)
 ```
-Writes 'length' 16-bit values from the words[] array from offset 'start'.
-Note that start + length shouldn't be greater than 42.
-Ret: nothing.
-```
-
-##### readBackup(words[], start, length)
-```
-Reads 'length' 16-bit values from offset 'start' and stores into the words[] array.
-Note that start + length shouldn't be greater than 42.
-Ret: nothing.
+Writes user data to the RTC backup registers. These registers are non-volatile if Vbat is powered with an external coin cell or equivalent. 
+Arg: data_array[] - an array of 16 bit data words to write, maximum of 9.
+Arg: indx - Starting register number (0 - 8).
+Arg: len - number of registers to write. 
+Ret: Nothing
 ```
 
-##### clearBackup()
+##### eepromRead(data_array[], indx, len)
 ```
-Clears all backup registers to 0x0.
-Ret: nothing.
+Reads user data from the RTC backup registers. These registers are non-volatile if Vbat is powered with an external coin cell or equivalent. 
+Arg: data_array[] - an array of 16 bit data words, maximum of 9.
+Arg: indx - Starting register number (0 - 8).
+Arg: len - number of registers to read. 
+Ret: Nothing
 ```
 
+##### getWeekdayName(DOW)      
+```
+Returns a pointer to a char string containing the name of the day of the week. 
+Arg: DOW - number of the weekday (1 - 7). Sunday = 1, Saturday = 7.
+Ret: char * to string.
+```
+
+##### getMonthName(month)
+```
+Returns a pointer to a char string containing the name of the month. 
+Arg: month - number of the month (1 - 12). 
+Ret: char * to string.
+```
+
+##### getDateTimeStr(datetime, format) ***NOT IMPLEMENTED YET***
+```
+Returns a pointer to a char string containing the formatted date & time string. 
+Arg: datetime - pointer to RTC_datetime_t structure.
+Arg: format - format type: YYMMDD_HHMMSS, etc.
+Ret: char * to string.
+```
+
+##### isConfigured()
+```
+Checks if the RTC has been configured.
+Ret: true if configured via call to begin().
+```
+
+##### isTimeSet()
+```
+Checks if date & time have been set. 
+Ret: true if date/time has been set. 
+Note: This can be useful after a call to begin() to know if date/time was set prior to the last reset.
+```
+
+##### isAlarmEnabled()
+```
+Checks if the alarm has been set. 
+Ret: true if alarm has been set. 
+Note: This can be useful after a call to begin() to know if the alarm was set prior to the last reset.
+```
