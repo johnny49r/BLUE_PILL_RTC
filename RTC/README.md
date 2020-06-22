@@ -1,4 +1,4 @@
-# BLUE_PILL_RTC
+# STM32 REAL TIME CLOCK LIBRARY
 STM32F10x (aka BLUE PILL) RTC Library - VSCode / Arduino / Battery Backup
 
 John Hoeppner@Abbycus 2020
@@ -8,24 +8,26 @@ John Hoeppner@Abbycus 2020
 A simple and minimalist library to implement real time clock functions on various STM32F10x boards (Blue Pill, Black Pill, etc.). This was created because other libraries didn't work with battery backup and would lose the date on reset/power down.
 
 The STM32F10x MPU sports an embedded RTC with a ***Vbat*** pin that can power the RTC via a coin cell when main power is removed. These boards also contain a low power 32.768 KHz resonator as the precision clock source. 
-The RTC is centered around a 32 bit (second) counter which keeps a timestamp of the number of seconds elapsed since 1970.
+The RTC is centered around a 32 bit (second) counter which maintains a running 'epoch' counter of the number of seconds elapsed since 1970.
 The counter increments once per second and time & date are derived from this singularity.
 The RTC has an alarm function which simply reports when the currently running timestamp exceeds the value stored in an alarm register.
 
-Additionally the STM32F10x has 42 16-bit backup registers that can be used to store user configuration / calibration data. These backup registers are non volatile when the Vbat pin is powered and are functionally equivalent to an EEPROM.
+Additionally the STM32F10x has 9 16-bit backup registers that can be used to store user configuration / calibration data. These backup registers are non volatile when the Vbat pin is powered and are functionally equivalent to an EEPROM.
 
 I hope this is useful and would appreciate your feedback.
 
 ### NOTES:
 
-- The external battery (CR2032 or ?) should be connected to the Vbat pin through a shottky diode to prevent current flow into the battery when the board is powered normally.
+- Check the STM32LIBS_RTC.h header file for more details about parameter and return data types and possible values.
 
-- Use caution when utilizing GPIO PC13: This I/O is active when Vbat is connected to an external battery. On the Blue Pill boards PC13 is connected to the on-board LED and if it is active when main power drops, the external battery could drain quickly.
+- The STM32F1xx datasheet shows support for 42 backup registers but not all devices support more than 10 (ex: cheap Blue Pill knockoff's). For this reason the library will only support 9 user resisters. The first register is used for keeping the state of the RTC during power down (with Vbat powered).
 
-- Not all devices support 42 backup registers. The cheap knockoff's only seem to support 10. For this reason the library will only support 9 user resisters. The first register is used for keeping the state of the RTC during power down.
+- The external Vbat battery (CR2032 or ?) should be connected to the Vbat pin through a shottky diode to prevent current flow into the battery when the board is powered normally.
+
+- Use caution when utilizing GPIO PC13: This I/O is active when Vbat is connected to an external battery. On the Blue Pill boards PC13 is connected to the on-board LED and if it is active (HIGH) when main power drops, the external battery could drain quickly trying to power the LED.
 
 - Many (or perhaps most) cheap BLUE PILL boards use Chinese STM32F10x clones. 
-These chips have a slightly different signature than 'real' STMicro chips and may fail during firmware uploading. Here is one workaround:
+These chips have a slightly different signature than 'original' STMicro chips and may fail during firmware uploading. Here is one workaround:
 ```
 > Locate the file 'stm32f1x.cfg',
     Linux path example: '.platformio/packages/tool-openocd/scripts/target/stm32f1x.cfg'.
@@ -33,8 +35,6 @@ These chips have a slightly different signature than 'real' STMicro chips and ma
 > Find and change "set _CPUTAPID 0x1ba01477" to "set _CPUTAPID 0x2ba01477"
 > Save & exit.
 ```
-
-- Check the STM32LIBS_RTC.h header file for more details about parameter and return data types and possible values.
 
 ### SAMPLE BUILD ENVIRONMENT
 
